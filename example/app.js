@@ -90,8 +90,9 @@ export default class App extends Component {
       cropping: cropit,
       cropperCircleOverlay: circular,
       compressVideo: true,
-      compressMaxWidth: 500,
-      compressMaxHeight: 500,
+      compressMaxWidth: 640,
+      compressMaxHeight: 480,
+      compressVideoPreset: 'MediumQuality',
       compressQuality: 0.5
     }).then(image => {
       console.log('received image', image);
@@ -123,9 +124,9 @@ export default class App extends Component {
     return (oldH / oldW) * newW;
   }
 
-  renderVideo(uri) {
-    return <View style={{height: 300, width: 300}}>
-      <Video source={{uri}}
+  renderVideo(video) {
+    return (<View style={{height: 300, width: 300}}>
+      <Video source={{uri: video.uri}}
          style={{position: 'absolute',
             top: 0,
             left: 0,
@@ -141,7 +142,7 @@ export default class App extends Component {
          onProgress={() => {}}
          onEnd={() => { console.log('Done!'); }}
          repeat={true} />
-     </View>;
+     </View>);
   }
 
   renderImage(image) {
@@ -150,14 +151,14 @@ export default class App extends Component {
 
   renderAsset(image) {
     if (image.mime && image.mime.toLowerCase().indexOf('video/') !== -1) {
-      return this.renderVideo(image.uri);
+      return this.renderVideo(image);
     }
 
     return this.renderImage(image);
   }
 
   render() {
-    return <View style={styles.container}>
+    return (<View style={styles.container}>
       <ScrollView>
         {this.state.image ? this.renderAsset(this.state.image) : null}
         {this.state.images ? this.state.images.map(i => <View key={i.uri}>{this.renderAsset(i)}</View>) : null}
@@ -190,6 +191,6 @@ export default class App extends Component {
       <TouchableOpacity onPress={this.cleanupSingleImage.bind(this)} style={styles.button}>
         <Text style={styles.text}>Cleanup Single Image</Text>
       </TouchableOpacity>
-    </View>;
+    </View>);
   }
 }

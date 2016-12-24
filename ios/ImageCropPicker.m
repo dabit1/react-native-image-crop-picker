@@ -230,20 +230,6 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
     }];
 }
 
-- (void)convertVideoToLowQuailtyWithInputURL:(NSURL*)inputURL
-                                   outputURL:(NSURL*)outputURL
-                                     handler:(void (^)(AVAssetExportSession*))handler {
-    [[NSFileManager defaultManager] removeItemAtURL:outputURL error:nil];
-    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:inputURL options:nil];
-    AVAssetExportSession *exportSession = [[AVAssetExportSession alloc] initWithAsset:asset presetName:AVAssetExportPresetMediumQuality];
-    exportSession.outputURL = outputURL;
-    exportSession.outputFileType = AVFileTypeMPEG4;
-    [exportSession exportAsynchronouslyWithCompletionHandler:^(void)
-     {
-         handler(exportSession);
-     }];
-}
-
 - (void)showActivityIndicator:(void (^)(UIActivityIndicatorView*, UIView*))handler {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIView *mainView = [[self getRootVC] view];
@@ -292,18 +278,17 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
      resultHandler:^(AVAsset * asset, AVAudioMix * audioMix,
                      NSDictionary *info) {
          NSURL *sourceURL = [(AVURLAsset *)asset URL];
-         AVAssetTrack *track = [[asset tracksWithMediaType:AVMediaTypeVideo] firstObject];
-         CGSize dimensions = CGSizeApplyAffineTransform(track.naturalSize, track.preferredTransform);
-
+         
          if (![[self.options objectForKey:@"compressVideo"] boolValue]) {
+             AVAssetTrack *track = [[asset tracksWithMediaType:AVMediaTypeVideo] firstObject];
              NSNumber *fileSizeValue = nil;
              [sourceURL getResourceValue:&fileSizeValue
                                   forKey:NSURLFileSizeKey
                                    error:nil];
 
              completion([self createAttachmentResponse:[sourceURL absoluteString]
-                                             withWidth:[NSNumber numberWithFloat:dimensions.width]
-                                            withHeight:[NSNumber numberWithFloat:dimensions.height]
+                                             withWidth:[NSNumber numberWithFloat:track.naturalSize.width]
+                                            withHeight:[NSNumber numberWithFloat:track.naturalSize.height]
                                               withMime:[@"video/" stringByAppendingString:[[sourceURL pathExtension] lowercaseString]]
                                               withSize:fileSizeValue
                                               withData:[NSNull null]]);
@@ -316,16 +301,19 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
          filePath = [filePath stringByAppendingString:@".mp4"];
          NSURL *outputURL = [NSURL fileURLWithPath:filePath];
 
-         [self convertVideoToLowQuailtyWithInputURL:sourceURL outputURL:outputURL handler:^(AVAssetExportSession *exportSession) {
+         [self.compression compressVideo:sourceURL outputURL:outputURL withOptions:self.options handler:^(AVAssetExportSession *exportSession) {
              if (exportSession.status == AVAssetExportSessionStatusCompleted) {
+                 AVAsset *compressedAsset = [AVAsset assetWithURL:outputURL];
+                 AVAssetTrack *track = [[compressedAsset tracksWithMediaType:AVMediaTypeVideo] firstObject];
+                 
                  NSNumber *fileSizeValue = nil;
                  [outputURL getResourceValue:&fileSizeValue
                                       forKey:NSURLFileSizeKey
                                        error:nil];
 
                  completion([self createAttachmentResponse:[outputURL absoluteString]
-                                                 withWidth:[NSNumber numberWithFloat:dimensions.width]
-                                                withHeight:[NSNumber numberWithFloat:dimensions.height]
+                                                 withWidth:[NSNumber numberWithFloat:track.naturalSize.width]
+                                                withHeight:[NSNumber numberWithFloat:track.naturalSize.height]
                                                   withMime:@"video/mp4"
                                                   withSize:fileSizeValue
                                                   withData:[NSNull null]]);
