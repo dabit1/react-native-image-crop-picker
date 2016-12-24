@@ -28,6 +28,9 @@
 #define ERROR_CANNOT_PROCESS_VIDEO_KEY @"E_CANNOT_PROCESS_VIDEO"
 #define ERROR_CANNOT_PROCESS_VIDEO_MSG @"Cannot process video data"
 
+@implementation ImageResult
+@end
+
 @implementation ImageCropPicker
 
 RCT_EXPORT_MODULE();
@@ -44,8 +47,12 @@ RCT_EXPORT_MODULE();
                                 @"maxFiles": @5,
                                 @"width": @200,
                                 @"height": @200,
-                                @"useFrontCamera": @NO
+                                @"useFrontCamera": @NO,
+                                @"compressQuality": @0.8,
+                                @"compressMaxWidth": @0,
+                                @"compressMaxHeight": @0,
                                 };
+        self.compression = [[Compression alloc] init];
     }
 
     return self;
@@ -386,10 +393,9 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
                      resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
 
                          dispatch_async(dispatch_get_main_queue(), ^{
-                             UIImage *image = [UIImage imageWithData:imageData];
-                             NSData *data = UIImageJPEGRepresentation(image, 1);
-
-                             NSString *filePath = [self persistFile:data];
+                             ImageResult *imageResult = [self.compression compressImage:[UIImage imageWithData:imageData] withOptions:self.options];
+                             NSString *filePath = [self persistFile:imageResult.data];
+                             
                              if (filePath == nil) {
                                  self.reject(ERROR_CANNOT_SAVE_IMAGE_KEY, ERROR_CANNOT_SAVE_IMAGE_MSG, nil);
                                  [imagePickerController dismissViewControllerAnimated:YES completion:nil];
@@ -398,11 +404,11 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
 
                              [lock lock];
                              [selections addObject:[self createAttachmentResponse:filePath
-                                                                        withWidth:@(phAsset.pixelWidth)
-                                                                       withHeight:@(phAsset.pixelHeight)
-                                                                         withMime:@"image/jpeg"
-                                                                         withSize:[NSNumber numberWithUnsignedInteger:data.length]
-                                                                         withData:[[self.options objectForKey:@"includeBase64"] boolValue] ? [data base64EncodedStringWithOptions:0] : [NSNull null]
+                                                                        withWidth:imageResult.width
+                                                                       withHeight:imageResult.height
+                                                                         withMime:imageResult.mime
+                                                                         withSize:[NSNumber numberWithUnsignedInteger:imageResult.data.length]
+                                                                         withData:[[self.options objectForKey:@"includeBase64"] boolValue] ? [imageResult.data base64EncodedStringWithOptions:0] : [NSNull null]
                                                     ]];
                              processed++;
                              [lock unlock];
@@ -488,8 +494,8 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
         [imageCropVC setModalTransitionStyle:UIModalTransitionStyleCrossDissolve];
         [[self getRootVC] presentViewController:imageCropVC animated:YES completion:nil];
     } else {
-        NSData *data = UIImageJPEGRepresentation(image, 1);
-        NSString *filePath = [self persistFile:data];
+        ImageResult *imageResult = [self.compression compressImage:image withOptions:self.options];
+        NSString *filePath = [self persistFile:imageResult.data];
         if (filePath == nil) {
             self.reject(ERROR_CANNOT_SAVE_IMAGE_KEY, ERROR_CANNOT_SAVE_IMAGE_MSG, nil);
             [viewController dismissViewControllerAnimated:YES completion:nil];
@@ -497,11 +503,11 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
         }
 
         self.resolve([self createAttachmentResponse:filePath
-                                          withWidth:@(image.size.width)
-                                         withHeight:@(image.size.height)
-                                           withMime:@"image/jpeg"
-                                           withSize:[NSNumber numberWithUnsignedInteger:data.length]
-                                           withData:[[self.options objectForKey:@"includeBase64"] boolValue] ? [data base64EncodedStringWithOptions:0] : [NSNull null]]);
+                                          withWidth:imageResult.width
+                                         withHeight:imageResult.height
+                                           withMime:imageResult.mime
+                                           withSize:[NSNumber numberWithUnsignedInteger:imageResult.data.length]
+                                           withData:[[self.options objectForKey:@"includeBase64"] boolValue] ? [imageResult.data base64EncodedStringWithOptions:0] : [NSNull null]]);
 
         [viewController dismissViewControllerAnimated:YES completion:nil];
     }
@@ -579,13 +585,13 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
     // so resize image
     CGSize resizedImageSize = CGSizeMake([[[self options] objectForKey:@"width"] intValue], [[[self options] objectForKey:@"height"] intValue]);
     UIImage *resizedImage = [croppedImage resizedImageToFitInSize:resizedImageSize scaleIfSmaller:YES];
-    NSData *data = UIImageJPEGRepresentation(resizedImage, 1);
+    ImageResult *imageResult = [self.compression compressImage:resizedImage withOptions:self.options];
 
     //We've presented the cropper on top of the image picker as to not have a double modal animation.
     //Thus, we need to dismiss the image picker view controller to dismiss the whole stack.
     UIViewController *topViewController = controller.presentingViewController.presentingViewController;
 
-    NSString *filePath = [self persistFile:data];
+    NSString *filePath = [self persistFile:imageResult.data];
     if (filePath == nil) {
         self.reject(ERROR_CANNOT_SAVE_IMAGE_KEY, ERROR_CANNOT_SAVE_IMAGE_MSG, nil);
         [topViewController dismissViewControllerAnimated:YES completion:nil];
@@ -593,11 +599,11 @@ RCT_EXPORT_METHOD(openPicker:(NSDictionary *)options
     }
 
     self.resolve([self createAttachmentResponse:filePath
-                                      withWidth:@(resizedImage.size.width)
-                                     withHeight:@(resizedImage.size.height)
-                                       withMime:@"image/jpeg"
-                                       withSize:[NSNumber numberWithUnsignedInteger:data.length]
-                                       withData:[[self.options objectForKey:@"includeBase64"] boolValue] ? [data base64EncodedStringWithOptions:0] : [NSNull null]]);
+                                      withWidth:imageResult.width
+                                     withHeight:imageResult.height
+                                       withMime:imageResult.mime
+                                       withSize:[NSNumber numberWithUnsignedInteger:imageResult.data.length]
+                                       withData:[[self.options objectForKey:@"includeBase64"] boolValue] ? [imageResult.data base64EncodedStringWithOptions:0] : [NSNull null]]);
 
     [topViewController dismissViewControllerAnimated:YES completion:nil];
 }

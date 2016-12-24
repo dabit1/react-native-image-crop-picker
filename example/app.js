@@ -38,9 +38,8 @@ export default class App extends Component {
   pickSingleWithCamera(cropping) {
     ImagePicker.openCamera({
       cropping: true,
-      // cropperCircleOverlay: true,
       width: 500,
-      height: 500
+      height: 500,
     }).then(image => {
       console.log('received image', image);
       this.setState({
@@ -90,7 +89,10 @@ export default class App extends Component {
       height: 300,
       cropping: cropit,
       cropperCircleOverlay: circular,
-      compressVideo: true
+      compressVideo: true,
+      compressMaxWidth: 500,
+      compressMaxHeight: 500,
+      compressQuality: 0.5
     }).then(image => {
       console.log('received image', image);
       this.setState({
